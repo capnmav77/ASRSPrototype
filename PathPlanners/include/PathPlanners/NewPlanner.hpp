@@ -62,7 +62,7 @@ private:
     }
 
     void responseCallback(rclcpp::Client<my_robot_interfaces::srv::GetMap>::SharedFuture future) {
-        RCLCPP_INFO(node_->get_logger(), "Fresh map recieved");
+        //RCLCPP_INFO(node_->get_logger(), "Fresh map recieved");
         auto result = future.get();
         map_x = result->map[result->map.size() - 3];
         map_y = result->map[result->map.size() - 2];
@@ -74,7 +74,7 @@ private:
     }
 
     void update_map(const vector<int>& map) {
-        RCLCPP_INFO(node_->get_logger(), "Updating Map");
+        //RCLCPP_INFO(node_->get_logger(), "Updating Map");
 
         for(int i = 0 ; i < map_x ; i++) {
             for(int j = 0 ; j < map_y ; j++) {
@@ -83,7 +83,7 @@ private:
                 }
             }
         }
-        RCLCPP_INFO(node_->get_logger(),"Map Dimensions: %d %d %d", map_x, map_y, map_z);
+        //RCLCPP_INFO(node_->get_logger(),"Map Dimensions: %d %d %d", map_x, map_y, map_z);
         //print_map();
     }
 
@@ -101,6 +101,9 @@ private:
         }
         std::cout<<std::endl;
     }
+
+
+    // collision avoider : 
 
     geometry_msgs::msg::Point planner_check_collision(const struct Path current_path)
     {
@@ -164,6 +167,9 @@ private:
         return collision_point;
     }
 
+
+    // callback for getting plan 
+
     void planner_get_plan(const std::shared_ptr<my_robot_interfaces::srv::GetPlan::Request> request,
         std::shared_ptr<my_robot_interfaces::srv::GetPlan::Response> response) {
 
@@ -188,7 +194,23 @@ private:
             }
         }
 
+        //unassign the old path from the global map 
+        for(int i=0 ; i<archived_paths.size() ; ++i){
+            if(archived_paths[i].serial_id == request->serial_id){
+                auto new_global_map = this->generate_new_map(archived_paths[i].point_list , false);
+                this->global_map = new_global_map;
+                RCLCPP_INFO(node_->get_logger(), "Unassigning Old Path");
+
+                this->publish_new_map(pre_process_map());
+                archived_paths.erase(archived_paths.begin() + i);
+                break;
+            }
+        }
+
         if (!found) RCLCPP_INFO(node_->get_logger(),"%s Does not Exist", request->serial_id.c_str());
+
+
+        // main planner 
 
         geometry_msgs::msg::Point collision_location;
         Path current_path;
@@ -208,25 +230,17 @@ private:
             }
         }while(collision_location.x != -1 && tries > 0);
 
-        // if collision is found
+        // if collision is found even after 10 tries
         if(collision_location.x != -1){
             RCLCPP_INFO(node_->get_logger(), "Collision Detected at %f %f %f and it cannot be resolved !", collision_location.x, collision_location.y, collision_location.z);
             return;
         }
 
-        // updating the new_path with path 
-        for(int i=0 ; i<archived_paths.size() ; ++i){
-            if(archived_paths[i].serial_id == current_path.serial_id){
-                archived_paths[i] = current_path;
-                break;
-            }
-        }
+        archived_paths.push_back(current_path);
 
         for(auto point : current_path.point_list){
-            std::cout<<point.x<<" "<<point.y<<" "<<point.z<<" ";
+            RCLCPP_INFO(node_->get_logger(), "Path Point: %f %f %f", point.x, point.y, point.z);
         }
-
-        std::cout<<std::endl;
 
         response->path = current_path.point_list;
         
@@ -254,9 +268,12 @@ private:
 
 
         // we finally update the map with the new map 
-        std::vector<int> new_map_vector = this->generate_new_map(current_path.point_list);
-        this->publish_new_map(new_map_vector);
+        global_map = this->generate_new_map(current_path.point_list , true);
+        this->publish_new_map(pre_process_map());
     }
+
+
+    // callback for updating the map
 
     void publish_new_map(std::vector<int> new_map) {
         RCLCPP_INFO(node_->get_logger(), "Publishing new map onto map server");
@@ -267,7 +284,7 @@ private:
     }
 
 
-    std::vector<int> generate_new_map(std::vector<geometry_msgs::msg::Point> path , bool add_path = true) {
+    std::vector<vector<vector<int>>> generate_new_map(std::vector<geometry_msgs::msg::Point> &path , bool add_path = true) {
         RCLCPP_INFO(node_->get_logger(), "Generating new map");
         auto new_global_map = global_map;
         if(add_path){
@@ -284,12 +301,15 @@ private:
             }
         
         }
+        return new_global_map;
+    }
 
+    vector<int> pre_process_map(){
         std::vector<int> new_map;
         for(int i=0 ; i<map_x ; ++i){
             for(int j = 0 ; j<map_y ; ++j){
                 for(int k = 0 ; k<map_z ; ++k){
-                    new_map.push_back(new_global_map[i][j][k]);
+                    new_map.push_back(this->global_map[i][j][k]);
                 }
             }
         }
@@ -298,7 +318,7 @@ private:
         new_map.push_back(map_x);
         new_map.push_back(map_y);
         new_map.push_back(map_z);
-
+        
         return new_map;
     }
 
@@ -323,6 +343,7 @@ private:
                 found = true;
                 break;
             }
+
         }
 
         if (!found)
