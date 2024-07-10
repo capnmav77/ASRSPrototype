@@ -5,7 +5,8 @@
 #include <my_robot_interfaces/srv/get_map.hpp>
 #include <my_robot_interfaces/srv/get_plan.hpp>
 //#include <PathPlanners/CoreComponents.hpp>
-#include <PathPlanners/PathPlanningLibv2.hpp>
+#include <PathPlanners/A_star.hpp>
+#include <PathPlanners/Dijkstra.hpp>
 #include <my_robot_interfaces/srv/update_map.hpp>
 
 
@@ -46,6 +47,7 @@ private:
     vector<Path> archived_paths; 
     vector<my_robot_interfaces::msg::AgentInfo> agent_poses;
     AStar astar;
+    //Dijkstra dijkstra;
 
     //
 
