@@ -25,9 +25,10 @@ public:
     Path_Planner(std::shared_ptr<rclcpp::Node> node, const int period = 10) : node_(node), period_(period) {
         path_planning_service_ = node_->create_service<my_robot_interfaces::srv::GetPlan>(
             "/get_plan", std::bind(&Path_Planner::planner_get_plan, this, std::placeholders::_1, std::placeholders::_2));
-        
+        sub_agent_info_ = node_->create_subscription<my_robot_interfaces::msg::AgentInfo>("/agent_info", 100, std::bind(&Path_Planner::planner_agent_pose_callback, this, std::placeholders::_1));
         update_map_client_ = node_->create_client<my_robot_interfaces::srv::UpdateMap>("/update_map");
         get_map_client_ = node_->create_client<my_robot_interfaces::srv::GetMap>("/get_map");
+        
 
         RCLCPP_INFO(node_->get_logger(), "Motion Planner Service Ready");
         timer_ = node_->create_wall_timer(std::chrono::duration<double>(5.0) , bind(&Path_Planner::init_map, this));
@@ -38,10 +39,13 @@ private:
     rclcpp::Service<my_robot_interfaces::srv::GetPlan>::SharedPtr path_planning_service_;
     rclcpp::Client<my_robot_interfaces::srv::GetMap>::SharedPtr get_map_client_;
     rclcpp::Client<my_robot_interfaces::srv::UpdateMap>::SharedPtr update_map_client_;
+    rclcpp::Subscription<my_robot_interfaces::msg::AgentInfo>::SharedPtr sub_agent_info_;   
     rclcpp::TimerBase::SharedPtr timer_;
-    const int period_;
+    const int period_ = 10;
     vector<vector<vector<int>>> global_map;
     vector<Path> archived_paths; 
+    vector<my_robot_interfaces::msg::AgentInfo> agent_poses;
+    AStar astar;
 
     //
 
@@ -98,41 +102,134 @@ private:
         std::cout<<std::endl;
     }
 
+    geometry_msgs::msg::Point planner_check_collision(const struct Path current_path)
+    {
+        geometry_msgs::msg::Point collision_point;
+        collision_point.x = -1;
+        collision_point.y = -1;
+        collision_point.z = -1;
+
+        for (auto path_obj : archived_paths)
+        {
+        if (path_obj.serial_id != current_path.serial_id)
+        {
+            
+            if ((current_path.time_of_plan - path_obj.time_of_plan) >= period_)
+            {
+
+                for (auto current_path_point : current_path.point_list)
+                {
+                    if (path_obj.point_list.back().x == current_path_point.x && path_obj.point_list.back().y == current_path_point.y && path_obj.point_list.back().z == current_path_point.z)
+                    {
+                        return current_path_point;
+                    }
+                }
+            }
+
+            else
+            {
+                for (size_t i=0; i < path_obj.point_list.size(); i++)
+                {
+
+                    for (size_t j=0; j < current_path.point_list.size(); j++)
+                    {
+
+                        if (path_obj.point_list.at(i).x == current_path.point_list.at(j).x && path_obj.point_list.at(i).y == current_path.point_list.at(j).y && path_obj.point_list.at(i).z == current_path.point_list.at(j).z)
+                        {
+                            double time_offset = current_path.time_of_plan - path_obj.time_of_plan;
+
+                            double segments_in_currentPath  = current_path.point_list.size() - 1;
+                            double sec_per_seg_current_path = period_/segments_in_currentPath;
+
+                            double segments_in_archived_path = path_obj.point_list.size() - 1;
+                            double sec_per_seg_archived_path = period_/segments_in_archived_path;
+
+                            double entry_time_current_path = (j - 1) * sec_per_seg_current_path;
+                            double exit_time_current_path  = (j + 1) * sec_per_seg_current_path;
+
+                            double entry_time_archived_path = (i - 1) * sec_per_seg_archived_path - time_offset;
+                            double exit_time_archived_path = (i + 1)  * sec_per_seg_archived_path - time_offset;
+
+                            if (!(exit_time_current_path <= entry_time_archived_path || entry_time_current_path >=exit_time_archived_path))
+                            {
+                                return current_path.point_list.at(j);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+        return collision_point;
+    }
+
     void planner_get_plan(const std::shared_ptr<my_robot_interfaces::srv::GetPlan::Request> request,
         std::shared_ptr<my_robot_interfaces::srv::GetPlan::Response> response) {
+
         RCLCPP_INFO(node_->get_logger(), "Plan Request Received");
 
-        Path new_Path;
-        new_Path.serial_id = request->serial_id;
-        new_Path.time_of_plan = 0;
+        geometry_msgs::msg::Point start_point,goal_point;
+        goal_point.x = request->goal_pose.position.x;
+        goal_point.y = request->goal_pose.position.y;
+        goal_point.z = request->goal_pose.position.z;
 
-        
+        // check for the agent in the agent_poses
+        bool found = false;
+        for (auto agent : agent_poses)
+        {
+            if (agent.serial_id == request->serial_id)
+            {
+                start_point.x = agent.pose.position.x;
+                start_point.y = agent.pose.position.y;
+                start_point.z = agent.pose.position.z;
+                found = true;
+                break;
+            }
+        }
 
-        //new planner v2
+        if (!found) RCLCPP_INFO(node_->get_logger(),"%s Does not Exist", request->serial_id.c_str());
 
+        geometry_msgs::msg::Point collision_location;
+        Path current_path;
+        current_path.serial_id = request->serial_id;
+        auto new_tempo_map = global_map;
+        int tries = 10;
 
-        geometry_msgs::msg::Point start;
-        start.x = 0;
-        start.y = 0;
-        start.z = 0;
+        // check for collision
+        do{
+            tries--;
+            current_path.point_list = astar.get_plan(new_tempo_map,start_point,goal_point);
+            current_path.time_of_plan = node_->now().seconds();
+            collision_location = planner_check_collision(current_path);
+            if(collision_location.x != -1)
+            {
+                new_tempo_map[collision_location.x][collision_location.y][collision_location.z] = 0;
+            }
+        }while(collision_location.x != -1 && tries > 0);
 
-        geometry_msgs::msg::Point goal;
-        goal.x = request->goal_pose.position.x;
-        goal.y = request->goal_pose.position.y;
-        goal.z = request->goal_pose.position.z;
+        // if collision is found
+        if(collision_location.x != -1){
+            RCLCPP_INFO(node_->get_logger(), "Collision Detected at %f %f %f and it cannot be resolved !", collision_location.x, collision_location.y, collision_location.z);
+            return;
+        }
 
-        AStar astar;
-        auto path = astar.get_plan(global_map,start,goal);
-        new_Path.point_list = path;
+        // updating the new_path with path 
+        for(int i=0 ; i<archived_paths.size() ; ++i){
+            if(archived_paths[i].serial_id == current_path.serial_id){
+                archived_paths[i] = current_path;
+                break;
+            }
+        }
 
-        response->path = path;
-        for(auto point : path){
+        for(auto point : current_path.point_list){
             std::cout<<point.x<<" "<<point.y<<" "<<point.z<<" ";
         }
 
-        archived_paths.push_back(new_Path);
+        std::cout<<std::endl;
 
-
+        response->path = current_path.point_list;
+        
 
         // old planner v1
 
@@ -157,7 +254,7 @@ private:
 
 
         // we finally update the map with the new map 
-        std::vector<int> new_map_vector = this->generate_new_map(path);
+        std::vector<int> new_map_vector = this->generate_new_map(current_path.point_list);
         this->publish_new_map(new_map_vector);
     }
 
@@ -208,6 +305,45 @@ private:
     void print_Msg(std::shared_ptr<my_robot_interfaces::srv::UpdateMap::Response> response){
         RCLCPP_INFO(node_->get_logger(), "Map Update Result: %d", response->result);
     }
+
+    void planner_agent_pose_callback(my_robot_interfaces::msg::AgentInfo msg)
+    {   
+
+        bool found = false;
+
+        msg.pose.position.x = round(msg.pose.position.x);
+        msg.pose.position.y = round(msg.pose.position.y);
+        msg.pose.position.z = round(msg.pose.position.z);
+
+        for (int i=0; i < int(agent_poses.size()); i++)
+        {
+            if (agent_poses.at(i).serial_id == msg.serial_id)
+            {
+                agent_poses.at(i) = msg;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            agent_poses.push_back(msg);
+
+            Path new_agent_path;
+            geometry_msgs::msg::Point new_point;
+
+            new_agent_path.serial_id = msg.serial_id;
+            new_agent_path.time_of_plan = node_->now().seconds();
+            new_point.x = msg.pose.position.x;
+            new_point.y = msg.pose.position.y;
+            new_point.z = msg.pose.position.z;
+
+            new_agent_path.point_list.push_back(new_point);
+            archived_paths.push_back(new_agent_path);
+
+        }
+    }
+
 };
 
 

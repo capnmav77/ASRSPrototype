@@ -29,7 +29,7 @@ public:
     marker.pose.orientation.w = 1.0;
     marker.scale.x = 1;
     marker.scale.y = 1;
-    marker.scale.z = 0.25;
+    marker.scale.z = 1;
     marker.color.r = 255;
     marker.color.b = 255;
     marker.color.a = 0.5;
