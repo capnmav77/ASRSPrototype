@@ -126,6 +126,7 @@ private:
                 {
                     if (path_obj.point_list.back().x == current_path_point.x && path_obj.point_list.back().y == current_path_point.y && path_obj.point_list.back().z == current_path_point.z)
                     {
+                        RCLCPP_INFO(node_->get_logger(), "Collision Detected at %f %f %f", current_path_point.x, current_path_point.y, current_path_point.z);
                         return current_path_point;
                     }
                 }
@@ -139,7 +140,10 @@ private:
                     for (size_t j=0; j < current_path.point_list.size(); j++)
                     {
 
-                        if (path_obj.point_list.at(i).x == current_path.point_list.at(j).x && path_obj.point_list.at(i).y == current_path.point_list.at(j).y && path_obj.point_list.at(i).z == current_path.point_list.at(j).z)
+                        const double EPSILON = 1e-6;
+                    if (std::abs(path_obj.point_list.at(i).x - current_path.point_list.at(j).x) < EPSILON &&
+                        std::abs(path_obj.point_list.at(i).y - current_path.point_list.at(j).y) < EPSILON &&
+                        std::abs(path_obj.point_list.at(i).z - current_path.point_list.at(j).z) < EPSILON)
                         {
                             double time_offset = current_path.time_of_plan - path_obj.time_of_plan;
 
@@ -157,6 +161,7 @@ private:
 
                             if (!(exit_time_current_path <= entry_time_archived_path || entry_time_current_path >=exit_time_archived_path))
                             {
+                                RCLCPP_INFO(node_->get_logger(), "Collision Detected at %f %f %f", current_path.point_list.at(j).x, current_path.point_list.at(j).y, current_path.point_list.at(j).z);
                                 return current_path.point_list.at(j);
                             }
                         }
@@ -199,6 +204,8 @@ private:
         //unassign the old path from the global map 
         for(int i=0 ; i<archived_paths.size() ; ++i){
             if(archived_paths[i].serial_id == request->serial_id){
+                // if(archived_paths[i].point_list.size() == 1) break;
+
                 auto new_global_map = this->generate_new_map(archived_paths[i].point_list , false);
                 this->global_map = new_global_map;
                 RCLCPP_INFO(node_->get_logger(), "Unassigning Old Path");
@@ -232,9 +239,9 @@ private:
             }
         }while(collision_location.x != -1 && tries > 0);
 
-        // if collision is found even after 10 tries
+        // if collision is not found even after 10 tries
         if(collision_location.x != -1){
-            RCLCPP_INFO(node_->get_logger(), "Collision Detected at %f %f %f and it cannot be resolved !", collision_location.z, collision_location.y, collision_location.x);
+            RCLCPP_INFO(node_->get_logger(), "Collision Detected at %f %f %f and it cannot be resolved !", collision_location.x, collision_location.y, collision_location.z);
             return;
         }
 
