@@ -66,11 +66,11 @@ private:
     void responseCallback(rclcpp::Client<my_robot_interfaces::srv::GetMap>::SharedFuture future) {
         //RCLCPP_INFO(node_->get_logger(), "Fresh map recieved");
         auto result = future.get();
-        map_x = result->map[result->map.size() - 3];
+        map_z = result->map[result->map.size() - 3];
         map_y = result->map[result->map.size() - 2];
-        map_z = result->map[result->map.size() - 1]; 
+        map_x = result->map[result->map.size() - 1]; 
 
-        global_map.resize(map_x, vector<vector<int>>(map_y, vector<int>(map_z)));
+        global_map.resize(map_z, vector<vector<int>>(map_y, vector<int>(map_x)));
 
         update_map(result->map);
     }
@@ -78,10 +78,10 @@ private:
     void update_map(const vector<int>& map) {
         //RCLCPP_INFO(node_->get_logger(), "Updating Map");
 
-        for(int i = 0 ; i < map_x ; i++) {
+        for(int i = 0 ; i < map_z ; i++) {
             for(int j = 0 ; j < map_y ; j++) {
-                for(int k = 0 ; k < map_z ; k++) {
-                    global_map[i][j][k] = map[i * map_y * map_z + j * map_z + k];
+                for(int k = 0 ; k < map_x ; k++) {
+                    global_map[i][j][k] = map[i * map_y * map_x + j * map_x + k];
                 }
             }
         }
@@ -92,9 +92,9 @@ private:
     void print_map() {
         RCLCPP_INFO(node_->get_logger(), "Map Contents:");
 
-        for(int i = 0 ; i < map_x ; i++) {
+        for(int i = 0 ; i < map_z ; i++) {
             for(int j = 0 ; j < map_y ; j++) {
-                for(int k = 0 ; k < map_z ; k++) {
+                for(int k = 0 ; k < map_x ; k++) {
                     std::cout << global_map[i][j][k] << " ";
                 }
                 std::cout<<std::endl;
@@ -110,9 +110,9 @@ private:
     geometry_msgs::msg::Point planner_check_collision(const struct Path current_path)
     {
         geometry_msgs::msg::Point collision_point;
-        collision_point.x = -1;
-        collision_point.y = -1;
         collision_point.z = -1;
+        collision_point.y = -1;
+        collision_point.x = -1;
 
         for (auto path_obj : archived_paths)
         {
@@ -228,20 +228,20 @@ private:
             collision_location = planner_check_collision(current_path);
             if(collision_location.x != -1)
             {
-                new_tempo_map[collision_location.x][collision_location.y][collision_location.z] = 0;
+                new_tempo_map[collision_location.z][collision_location.y][collision_location.x] = 0;
             }
         }while(collision_location.x != -1 && tries > 0);
 
         // if collision is found even after 10 tries
         if(collision_location.x != -1){
-            RCLCPP_INFO(node_->get_logger(), "Collision Detected at %f %f %f and it cannot be resolved !", collision_location.x, collision_location.y, collision_location.z);
+            RCLCPP_INFO(node_->get_logger(), "Collision Detected at %f %f %f and it cannot be resolved !", collision_location.z, collision_location.y, collision_location.x);
             return;
         }
 
         archived_paths.push_back(current_path);
 
         for(auto point : current_path.point_list){
-            RCLCPP_INFO(node_->get_logger(), "Path Point: %f %f %f", point.x, point.y, point.z);
+            RCLCPP_INFO(node_->get_logger(), "Path Point: %f %f %f", point.z, point.y, point.x);
         }
 
         response->path = current_path.point_list;
@@ -291,15 +291,15 @@ private:
         auto new_global_map = global_map;
         if(add_path){
             for(auto point : path) {
-                if(new_global_map[point.x][point.y][point.z] >= 1)
-                    new_global_map[point.x][point.y][point.z] += 1;
+                if(new_global_map[point.z][point.y][point.x] >= 1)
+                    new_global_map[point.z][point.y][point.x] += 1;
             }
         
         }
         else{
             for(auto point : path) {
-                if(new_global_map[point.x][point.y][point.z] > 1)
-                    new_global_map[point.x][point.y][point.z] -= 1;
+                if(new_global_map[point.z][point.y][point.x] > 1)
+                    new_global_map[point.z][point.y][point.x] -= 1;
             }
         
         }
@@ -308,18 +308,18 @@ private:
 
     vector<int> pre_process_map(){
         std::vector<int> new_map;
-        for(int i=0 ; i<map_x ; ++i){
+        for(int i=0 ; i<map_z ; ++i){
             for(int j = 0 ; j<map_y ; ++j){
-                for(int k = 0 ; k<map_z ; ++k){
+                for(int k = 0 ; k<map_x ; ++k){
                     new_map.push_back(this->global_map[i][j][k]);
                 }
             }
         }
 
         // add in the dimensions of the map at the end 
-        new_map.push_back(map_x);
-        new_map.push_back(map_y);
         new_map.push_back(map_z);
+        new_map.push_back(map_y);
+        new_map.push_back(map_x);
         
         return new_map;
     }

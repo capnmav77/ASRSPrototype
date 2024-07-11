@@ -29,7 +29,7 @@ public:
     marker.pose.orientation.w = 1.0;
     marker.scale.x = 1;
     marker.scale.y = 1;
-    marker.scale.z = 1;
+    marker.scale.z = 0.25;
     marker.color.r = 255;
     marker.color.b = 255;
     marker.color.a = 0.5;
@@ -63,8 +63,23 @@ public:
         p.x = i;
         p.y = j;
         p.z = 2;
+        if (i==5 && j==5)lift.points.push_back(p);
+
+        else
         marker.points.push_back(p);
       }
+
+      for (int j=0; j <= 10; j++)
+      {
+        p.x = i;
+        p.y = j;
+        p.z = 4;
+        if (i==5 && j==5)lift.points.push_back(p);
+
+        else
+        marker.points.push_back(p);
+      }
+      
     }
 
     pub_tiles_->publish(marker);

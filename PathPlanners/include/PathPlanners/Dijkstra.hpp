@@ -32,7 +32,7 @@ private:
     bool diagonal_traversal;
 
     std::vector<geometry_msgs::msg::Point> find_path(geometry_msgs::msg::Point start, geometry_msgs::msg::Point goal) {
-        if (start.x == goal.x) {
+        if (start.z == goal.z) {
             return find_path_on_level_heuristic(start, goal);
         } else {
             geometry_msgs::msg::Point start_elevator = find_nearest_elevator(start);
@@ -41,7 +41,7 @@ private:
                 return {};
 
             geometry_msgs::msg::Point dest_elevator = start_elevator;
-            dest_elevator.x = goal.x;
+            dest_elevator.z = goal.z;
 
             auto source_to_elevator = find_path_on_level_heuristic(start, start_elevator);
             auto elevator_to_dest = find_path_on_level_heuristic(dest_elevator, goal);
@@ -94,25 +94,25 @@ private:
                 directions = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
             }
 
-            for (const auto& [dy, dz] : directions) {
+            for (const auto& [dy, dx] : directions) {
                 int new_y = y + dy;
-                int new_z = z + dz;
+                int new_x = x + dx;
 
-                if (new_y >= 0 && new_y < static_cast<int>(map[0].size()) && new_z >= 0 && new_z < static_cast<int>(map[0][0].size()) && map[x][new_y][new_z] != 0) {
+                if (new_y >= 0 && new_y < static_cast<int>(map[0].size()) && new_x >= 0 && new_x < static_cast<int>(map[0][0].size()) && map[z][new_y][new_x] != 0) {
                     int new_G_cost = current->G_cost + 1; // Assuming each step has a cost of 1
 
-                    if (diagonal_traversal && dz != 0 && dy != 0) {
+                    if (diagonal_traversal && dx != 0 && dy != 0) {
                         new_G_cost += 1; // Additional cost for diagonal movements if enabled
                     }
 
-                    if (map[x][new_y][new_z] > 1) {
-                        new_G_cost *= map[x][new_y][new_z]; // Adjust cost if there are specific node costs
+                    if (map[z][new_y][new_x] > 1) {
+                        new_G_cost *= map[x][new_y][new_x]; // Adjust cost if there are specific node costs
                     }
 
                     auto new_node = std::make_shared<Path_Node>();
-                    new_node->point.x = static_cast<double>(x);
+                    new_node->point.z = static_cast<double>(z);
                     new_node->point.y = static_cast<double>(new_y);
-                    new_node->point.z = static_cast<double>(new_z);
+                    new_node->point.x = static_cast<double>(new_x);
                     new_node->parent = current;
                     new_node->G_cost = new_G_cost;
 
@@ -128,18 +128,18 @@ private:
     geometry_msgs::msg::Point find_nearest_elevator(geometry_msgs::msg::Point start) {
         int min_dist = INT_MAX;
         geometry_msgs::msg::Point elev;
-        elev.x = start.x;
+        elev.z = start.z;
         elev.y = -1;
-        elev.z = -1;
+        elev.x = -1;
 
         for (int i = 0; i < static_cast<int>(map[0].size()); ++i) {
             for (int j = 0; j < static_cast<int>(map[0][0].size()); ++j) {
-                if (map[start.x][i][j] == -1) {
-                    int dist = std::abs(i - start.y) + std::abs(start.z - j);
+                if (map[start.z][i][j] == -1) {
+                    int dist = std::abs(i - start.y) + std::abs(start.x - j);
                     if (min_dist > dist) {
                         min_dist = dist;
                         elev.y = i;
-                        elev.z = j;
+                        elev.x = j;
                     }
                 }
             }
