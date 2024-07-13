@@ -48,7 +48,7 @@ Visualization Manager:
       Offset:
         X: 5
         Y: 5
-        Z: 0.30000001192092896
+        Z: 0.0
       Plane: XY
       Plane Cell Count: 11
       Reference Frame: <Fixed Frame>
@@ -66,7 +66,7 @@ Visualization Manager:
       Offset:
         X: 5
         Y: 5
-        Z: 2
+        Z: 1
       Plane: XY
       Plane Cell Count: 11
       Reference Frame: <Fixed Frame>
@@ -199,10 +199,6 @@ Window Geometry:
   Selection:
     collapsed: false
   Time:
-    collapsed: false
-  Tool Properties:
-    collapsed: false
-  Views:
     collapsed: false
   Width: 1344
   X: 8

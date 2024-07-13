@@ -45,7 +45,8 @@ private:
     const int period_ = 10;
     vector<vector<vector<int>>> global_map;
     vector<Path> archived_paths; 
-    vector<my_robot_interfaces::msg::AgentInfo> agent_poses;
+    //unordered_map<string,Path> agent_paths_hmap;
+    unordered_map<string,my_robot_interfaces::msg::AgentInfo>agent_poses_hmap;
     AStar astar;
     //Dijkstra dijkstra;
 
@@ -182,29 +183,27 @@ private:
 
         RCLCPP_INFO(node_->get_logger(), "Plan Request Received");
 
+        if (agent_poses_hmap.find(request->serial_id) == agent_poses_hmap.end()){ 
+            RCLCPP_INFO(node_->get_logger(),"%s Does not Exist", request->serial_id.c_str());
+            return;
+        }
+
         geometry_msgs::msg::Point start_point,goal_point;
+
+        //goal point init
         goal_point.x = request->goal_pose.position.x;
         goal_point.y = request->goal_pose.position.y;
         goal_point.z = request->goal_pose.position.z;
 
-        // check for the agent in the agent_poses
-        bool found = false;
-        for (auto agent : agent_poses)
-        {
-            if (agent.serial_id == request->serial_id)
-            {
-                start_point.x = agent.pose.position.x;
-                start_point.y = agent.pose.position.y;
-                start_point.z = agent.pose.position.z;
-                found = true;
-                break;
-            }
-        }
+        //start point init
+        start_point.x = agent_poses_hmap[request->serial_id].pose.position.x;
+        start_point.y = agent_poses_hmap[request->serial_id].pose.position.y;
+        start_point.z = agent_poses_hmap[request->serial_id].pose.position.z;
 
         //unassign the old path from the global map 
-        for(int i=0 ; i<archived_paths.size() ; ++i){
+        for(int i=0 ; i<static_cast<int>(archived_paths.size()) ; ++i){
             if(archived_paths[i].serial_id == request->serial_id){
-                // if(archived_paths[i].point_list.size() == 1) break;
+                //if(archived_paths[i].point_list.size() == 1) break; // if the path is just the agent's current position
 
                 auto new_global_map = this->generate_new_map(archived_paths[i].point_list , false);
                 this->global_map = new_global_map;
@@ -212,15 +211,17 @@ private:
 
                 this->publish_new_map(pre_process_map());
                 archived_paths.erase(archived_paths.begin() + i);
-                break;
+            }
+            else{
+                if(archived_paths[i].point_list.back() == goal_point){
+                    RCLCPP_INFO(node_->get_logger(), "Goal Point is already occupied by another agent");
+                    response->path = {start_point, start_point};
+                    return;
+                }
             }
         }
 
-        if (!found) RCLCPP_INFO(node_->get_logger(),"%s Does not Exist", request->serial_id.c_str());
-
-
         // main planner 
-
         geometry_msgs::msg::Point collision_location;
         Path current_path;
         current_path.serial_id = request->serial_id;
@@ -237,6 +238,12 @@ private:
             {
                 new_tempo_map[collision_location.z][collision_location.y][collision_location.x] = 0;
             }
+            if(collision_location == goal_point || current_path.point_list.size() == 0){
+                RCLCPP_INFO(node_->get_logger(), "Goal unreachable as there is an object at the destination");
+                response->path = {start_point, start_point};
+                return;
+            }
+
         }while(collision_location.x != -1 && tries > 0);
 
         // if collision is not found even after 10 tries
@@ -245,14 +252,13 @@ private:
             return;
         }
 
+        response->path = current_path.point_list;
+
         archived_paths.push_back(current_path);
 
         for(auto point : current_path.point_list){
             RCLCPP_INFO(node_->get_logger(), "Path Point: %f %f %f", point.z, point.y, point.x);
         }
-
-        response->path = current_path.point_list;
-        
 
         // old planner v1
 
@@ -314,6 +320,7 @@ private:
     }
 
     vector<int> pre_process_map(){
+
         std::vector<int> new_map;
         for(int i=0 ; i<map_z ; ++i){
             for(int j = 0 ; j<map_y ; ++j){
@@ -338,28 +345,19 @@ private:
     void planner_agent_pose_callback(my_robot_interfaces::msg::AgentInfo msg)
     {   
 
-        bool found = false;
-
         msg.pose.position.x = round(msg.pose.position.x);
         msg.pose.position.y = round(msg.pose.position.y);
         msg.pose.position.z = round(msg.pose.position.z);
 
-        for (int i=0; i < int(agent_poses.size()); i++)
-        {
-            if (agent_poses.at(i).serial_id == msg.serial_id)
-            {
-                agent_poses.at(i) = msg;
-                found = true;
-                break;
-            }
-
+        //check in hmap for the serial_id 
+        if(agent_poses_hmap.find(msg.serial_id) != agent_poses_hmap.end()){
+            agent_poses_hmap[msg.serial_id] = msg;
         }
-
-        if (!found)
-        {
-            agent_poses.push_back(msg);
-
+        else{
+            agent_poses_hmap[msg.serial_id] = msg;
+            // add the agent's position into the archived paths 
             Path new_agent_path;
+
             geometry_msgs::msg::Point new_point;
 
             new_agent_path.serial_id = msg.serial_id;

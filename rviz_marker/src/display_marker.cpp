@@ -51,9 +51,6 @@ public:
         p.y = j;
         p.z = 0;
 
-        if (i==5 && j==5)lift.points.push_back(p);
-
-        else
         marker.points.push_back(p);
         
       }
@@ -62,10 +59,8 @@ public:
       {
         p.x = i;
         p.y = j;
-        p.z = 2;
-        if (i==5 && j==5)lift.points.push_back(p);
+        p.z = 1;
 
-        else
         marker.points.push_back(p);
       }
 
@@ -73,10 +68,8 @@ public:
       {
         p.x = i;
         p.y = j;
-        p.z = 4;
-        if (i==5 && j==5)lift.points.push_back(p);
+        p.z = 2;
 
-        else
         marker.points.push_back(p);
       }
       
