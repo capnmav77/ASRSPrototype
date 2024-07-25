@@ -12,6 +12,15 @@ class StreamlitAction(ExecuteProcess):
             output='screen'
         )
 
+class GazeboAction(ExecuteProcess):
+    def __init__(self):
+        super().__init__(
+            cmd=['ros2','launch','my_robot_bringup','my_robot_gazebo.launch.xml'],
+            name='Gazebo_Action',
+            output='screen'
+        )
+
+
 def generate_launch_description():
     rviz_config_path = os.path.join(get_package_share_path('rviz_marker'),
                                     'rviz', 'rviz_config.rviz')
@@ -46,17 +55,19 @@ def generate_launch_description():
     agent_node_2 = Node(
         package="agent",
         executable="service_test",
-        arguments=["agent_2","1", "0", "0"],
+        arguments=["agent_2","2", "0", "0"],
     )
 
     agent_node_3 = Node(
         package="agent",
         executable="service_test",
-        arguments=["agent_3","2", "0", "0"],
+        arguments=["agent_3","4", "0", "0"],
     )
 
     # Add the Streamlit GUI action
     streamlit_gui = StreamlitAction()
+
+    gazebo_init =GazeboAction()
     
     return LaunchDescription([
         marker_node,
@@ -67,4 +78,5 @@ def generate_launch_description():
         agent_node_2,
         agent_node_3,
         streamlit_gui,
+        gazebo_init,
     ])
