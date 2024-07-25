@@ -13,13 +13,14 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='neo',
-    maintainer_email='its.mastermind77@gmail.com',
+    maintainer='roswsl',
+    maintainer_email='chuvakreich@gmail.com',
     description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            "pose_listener = local_planner.p:main"
         ],
     },
 )

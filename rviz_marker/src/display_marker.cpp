@@ -30,7 +30,8 @@ public:
     marker.scale.x = 1;
     marker.scale.y = 1;
     marker.scale.z = 0.25;
-    marker.color.r = 255;
+    marker.color.r = 150;
+    marker.color.g = 255;
     marker.color.b = 255;
     marker.color.a = 0.5;
 
@@ -39,6 +40,14 @@ public:
     lift.color.r = 13.4;
     lift.color.g = 123.4;
     lift.color.b = 56.4;
+
+    auto obstacles = marker;
+
+    obstacles.color.r = 228;
+    obstacles.color.g = 147;
+    obstacles.color.b = 76;
+
+
 
     geometry_msgs::msg::Point p;
     
@@ -51,7 +60,10 @@ public:
         p.y = j;
         p.z = 0;
 
-        marker.points.push_back(p);
+        if((i==5 && j==5) || (i==7 && j==7)){
+          lift.points.push_back(p);
+        }
+        else marker.points.push_back(p);
         
       }
 
@@ -61,7 +73,11 @@ public:
         p.y = j;
         p.z = 1;
 
-        marker.points.push_back(p);
+
+        if((i==5 && j==5) || (i==7 && j==7)){
+          lift.points.push_back(p);
+        }
+        else marker.points.push_back(p);
       }
 
       for (int j=0; j <= 10; j++)
@@ -70,7 +86,10 @@ public:
         p.y = j;
         p.z = 2;
 
-        marker.points.push_back(p);
+        if((i==5 && j==5) || (i==7 && j==7)){
+          lift.points.push_back(p);
+        }
+        else marker.points.push_back(p);
       }
       
     }

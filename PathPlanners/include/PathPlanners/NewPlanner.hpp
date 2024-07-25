@@ -257,7 +257,7 @@ private:
         archived_paths.push_back(current_path);
 
         for(auto point : current_path.point_list){
-            RCLCPP_INFO(node_->get_logger(), "Path Point: %f %f %f", point.z, point.y, point.x);
+            RCLCPP_INFO(node_->get_logger(), "Path Point: %f %f %f", point.x, point.y, point.z);
         }
 
         // old planner v1
