@@ -151,20 +151,6 @@ private:
                std::to_string(static_cast<int>(node->point.x));
     }
 
-    // std::vector<geometry_msgs::msg::Point> reconstruct_bidirectional_path(const std::shared_ptr<Path_Node>& forward_node, const std::shared_ptr<Path_Node>& backward_node, bool reverse) {
-    //     std::vector<geometry_msgs::msg::Point> forward_path = reconstruct_path(forward_node);
-    //     std::vector<geometry_msgs::msg::Point> backward_path = reconstruct_path(backward_node);
-
-    //     if (reverse) {
-    //         std::reverse(forward_path.begin(), forward_path.end());
-    //     } else {
-    //         std::reverse(backward_path.begin(), backward_path.end());
-    //     }
-
-    //     forward_path.insert(forward_path.end(), backward_path.begin(), backward_path.end());
-    //     return forward_path;
-    // }
-
     geometry_msgs::msg::Point find_nearest_elevator(geometry_msgs::msg::Point start) {
         int min_dist = INT_MAX;
         geometry_msgs::msg::Point elev;
