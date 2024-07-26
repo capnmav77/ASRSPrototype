@@ -6,6 +6,7 @@
 #include <my_robot_interfaces/srv/get_plan.hpp>
 //#include <PathPlanners/CoreComponents.hpp>
 #include <PathPlanners/A_star.hpp>
+#include <PathPlanners/JPS.hpp>
 #include <PathPlanners/Bidirectional_A_Star.hpp>
 #include <PathPlanners/Dijkstra.hpp>
 #include <my_robot_interfaces/srv/update_map.hpp>
@@ -51,6 +52,7 @@ private:
     AStar astar;
     BID_A_Star bid_astar;
     Dijkstra dijkstra;
+    JPS jps;
 
     int map_x, map_y, map_z;
     bool map_is_initialized;
@@ -238,7 +240,7 @@ private:
             // calculate the time taken to plan the path 
             double time_start = node_->now().seconds();
 
-            current_path.point_list = bid_astar.get_plan(new_tempo_map,start_point,goal_point);
+            current_path.point_list = jps.get_plan(new_tempo_map,start_point,goal_point);
 
             double time_end = node_->now().seconds();
             logging_message += "\n Time taken to plan the path: " + std::to_string(time_end - time_start);
@@ -309,7 +311,7 @@ private:
     void write_to_log(const std::string &msg) {
         // open a file in append mode and write the message
         std::ofstream log_file;
-        log_file.open("/home/neo/Robotics/ros2_ws/Logs/log.txt", std::ios_base::app);
+        log_file.open("/home/neo/Robotics/ros2_ws/Logs/log5.txt", std::ios_base::app);
         log_file << msg << std::endl;
         log_file.close();
     }

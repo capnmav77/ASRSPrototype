@@ -2,6 +2,7 @@ import streamlit as st
 import subprocess
 import re
 import shlex
+import time
 
 def get_available_agents():
     # Run the ros2 service list command
@@ -15,6 +16,32 @@ def get_available_agents():
     agents = [re.search(r'/agent_(\w+)/', s).group(1) for s in agent_services]
     
     return agents
+
+
+def stresstesting(available_agents,testRuns=1):
+    available_agents = 3
+    start_point_list_1 = [[0, 0, 0], [2, 0, 0], [4, 0, 0]]
+    destination_point_list_1 = [[9, 9, 0], [9, 9, 1], [9, 9, 2]]
+    start_point_list_2 = [[9, 9, 0], [9, 9, 1], [9, 9, 2]]
+    destination_point_list_2 = [[1, 9, 1], [9, 1, 1], [1, 1, 1]]
+    start_point_list_3 = [[1, 9, 1], [9, 1, 1], [1, 1, 1]]
+    destination_point_list_3 = [[0, 0, 0], [2, 0, 0], [4, 0, 0]]
+    for i in range(testRuns):
+        for j in range(1,available_agents+1): # goes from 1 to 3
+            call_update_goal_service(str(j), destination_point_list_1[j-1][0], destination_point_list_1[j-1][1], destination_point_list_1[j-1][2])
+            #wait for 5 seconds
+            time.sleep(4)
+
+        for j in range(1,available_agents+1): # goes from 1 to 3
+            call_update_goal_service(str(j), destination_point_list_2[j-1][0], destination_point_list_2[j-1][1], destination_point_list_2[j-1][2])
+            #wait for 5 seconds
+            time.sleep(4)
+
+        for j in range(1,available_agents+1): # goes from 1 to 3
+            call_update_goal_service(str(j), destination_point_list_3[j-1][0], destination_point_list_3[j-1][1], destination_point_list_3[j-1][2])
+            #wait for 5 seconds
+            time.sleep(4)
+
 
 def call_update_goal_service(agent, x, y, z):
     yaml_args = f"{{goal_pose: {{position: {{x: {x}, y: {y}, z: {z}}}, orientation: {{x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}}}}"
@@ -57,3 +84,8 @@ if st.button('Update Goal'):
     else:
         st.success(f'Goal updated for agent_{selected_agent}')
         st.text(f'Service response:\n{stdout}')
+
+num_tests = st.number_input('Number of tests:', value=1)
+if st.button("stress Test"):
+    stresstesting(available_agents,num_tests)
+    st.success("stress test completed")
