@@ -150,7 +150,7 @@ private:
         return elev;
     }
 
-    int heuristic(geometry_msgs::msg::Point start, geometry_msgs::msg::Point goal) {
+    inline int heuristic(geometry_msgs::msg::Point start, geometry_msgs::msg::Point goal) {
         return std::abs(start.x - goal.x) + std::abs(start.y - goal.y) + std::abs(start.z - goal.z);
     }
 

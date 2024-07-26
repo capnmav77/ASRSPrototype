@@ -33,7 +33,7 @@ private:
 
     std::vector<geometry_msgs::msg::Point> find_path(geometry_msgs::msg::Point start, geometry_msgs::msg::Point goal) {
         if (start.z == goal.z) {
-            return find_path_on_level_heuristic(start, goal);
+            return find_path_on_level(start, goal);
         } else {
             geometry_msgs::msg::Point start_elevator = find_nearest_elevator(start);
 
@@ -43,8 +43,8 @@ private:
             geometry_msgs::msg::Point dest_elevator = start_elevator;
             dest_elevator.z = goal.z;
 
-            auto source_to_elevator = find_path_on_level_heuristic(start, start_elevator);
-            auto elevator_to_dest = find_path_on_level_heuristic(dest_elevator, goal);
+            auto source_to_elevator = find_path_on_level(start, start_elevator);
+            auto elevator_to_dest = find_path_on_level(dest_elevator, goal);
 
             if (!source_to_elevator.empty() && !elevator_to_dest.empty()) {
                 source_to_elevator.insert(source_to_elevator.end(), elevator_to_dest.begin(), elevator_to_dest.end());
@@ -56,16 +56,17 @@ private:
         }
     }
 
-    std::vector<geometry_msgs::msg::Point> find_path_on_level_heuristic(geometry_msgs::msg::Point start, geometry_msgs::msg::Point goal) {
+    std::vector<geometry_msgs::msg::Point> find_path_on_level(geometry_msgs::msg::Point start, geometry_msgs::msg::Point goal) {
         std::priority_queue<std::shared_ptr<Path_Node>, std::vector<std::shared_ptr<Path_Node>>, CompareNode> pq;
-        std::vector<std::vector<std::vector<bool>>> visited(map.size(), std::vector<std::vector<bool>>(map[0].size(), std::vector<bool>(map[0][0].size(), false)));
+        std::vector<std::vector<std::vector<int>>> distances(map.size(), std::vector<std::vector<int>>(map[0].size(), std::vector<int>(map[0][0].size(), std::numeric_limits<int>::max())));
 
         auto start_node = std::make_shared<Path_Node>();
         start_node->point = start;
         start_node->parent = nullptr;
-        start_node->G_cost = 0; // Initialize G_cost to 0 for the start node
+        start_node->G_cost = 0;
 
         pq.push(start_node);
+        distances[static_cast<int>(start.z)][static_cast<int>(start.y)][static_cast<int>(start.x)] = 0;
 
         while (!pq.empty()) {
             auto current = pq.top();
@@ -82,10 +83,7 @@ private:
                 return path;
             }
 
-            if (visited[x][y][z]) {
-                continue;
-            }
-            visited[x][y][z] = true;
+            if (current->G_cost > distances[z][y][x]) continue;
 
             std::vector<std::pair<int, int>> directions;
             if (this->diagonal_traversal) {
@@ -99,24 +97,26 @@ private:
                 int new_x = x + dx;
 
                 if (new_y >= 0 && new_y < static_cast<int>(map[0].size()) && new_x >= 0 && new_x < static_cast<int>(map[0][0].size()) && map[z][new_y][new_x] != 0) {
-                    int new_G_cost = current->G_cost + 1; // Assuming each step has a cost of 1
+                    int new_G_cost = current->G_cost + 1;
 
                     if (diagonal_traversal && dx != 0 && dy != 0) {
-                        new_G_cost += 1; // Additional cost for diagonal movements if enabled
+                        new_G_cost += 1;
                     }
 
                     if (map[z][new_y][new_x] > 1) {
-                        new_G_cost *= map[x][new_y][new_x]; // Adjust cost if there are specific node costs
+                        new_G_cost *= map[z][new_y][new_x];
                     }
 
-                    auto new_node = std::make_shared<Path_Node>();
-                    new_node->point.z = static_cast<double>(z);
-                    new_node->point.y = static_cast<double>(new_y);
-                    new_node->point.x = static_cast<double>(new_x);
-                    new_node->parent = current;
-                    new_node->G_cost = new_G_cost;
-
-                    pq.push(new_node);
+                    if (new_G_cost < distances[z][new_y][new_x]) {
+                        distances[z][new_y][new_x] = new_G_cost;
+                        auto new_node = std::make_shared<Path_Node>();
+                        new_node->point.z = static_cast<double>(z);
+                        new_node->point.y = static_cast<double>(new_y);
+                        new_node->point.x = static_cast<double>(new_x);
+                        new_node->parent = current;
+                        new_node->G_cost = new_G_cost;
+                        pq.push(new_node);
+                    }
                 }
             }
         }
@@ -145,10 +145,6 @@ private:
             }
         }
         return elev;
-    }
-
-    int heuristic(geometry_msgs::msg::Point start, geometry_msgs::msg::Point goal) {
-        return std::abs(start.x - goal.x) + std::abs(start.y - goal.y) + std::abs(start.z - goal.z);
     }
 
     std::vector<geometry_msgs::msg::Point> reconstruct_path(const std::shared_ptr<Path_Node>& end_node) {

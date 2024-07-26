@@ -23,6 +23,12 @@ struct CompareNode {
     }
 };
 
+struct CompareNode_D {
+    bool operator()(const std::shared_ptr<Path_Node>& a, const std::shared_ptr<Path_Node>& b) const {
+        return a->G_cost > b->G_cost;
+    }
+};
+
 class PathPlanners {
 public:
     virtual std::vector<geometry_msgs::msg::Point> get_plan(std::vector<std::vector<std::vector<int>>> map, geometry_msgs::msg::Point start, geometry_msgs::msg::Point goal) = 0; // Pure virtual function

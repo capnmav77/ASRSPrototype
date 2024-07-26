@@ -67,7 +67,7 @@ def generate_launch_description():
     # Add the Streamlit GUI action
     streamlit_gui = StreamlitAction()
 
-    gazebo_init =GazeboAction()
+    #gazebo_init =GazeboAction()
     
     return LaunchDescription([
         marker_node,
@@ -78,5 +78,5 @@ def generate_launch_description():
         agent_node_2,
         agent_node_3,
         streamlit_gui,
-        gazebo_init,
+        #gazebo_init,
     ])

@@ -6,6 +6,7 @@
 #include <my_robot_interfaces/srv/get_plan.hpp>
 //#include <PathPlanners/CoreComponents.hpp>
 #include <PathPlanners/A_star.hpp>
+#include <PathPlanners/Bidirectional_A_Star.hpp>
 #include <PathPlanners/Dijkstra.hpp>
 #include <my_robot_interfaces/srv/update_map.hpp>
 
@@ -48,9 +49,8 @@ private:
     //unordered_map<string,Path> agent_paths_hmap;
     unordered_map<string,my_robot_interfaces::msg::AgentInfo>agent_poses_hmap;
     AStar astar;
-    //Dijkstra dijkstra;
-
-    //
+    BID_A_Star bid_astar;
+    Dijkstra dijkstra;
 
     int map_x, map_y, map_z;
     bool map_is_initialized;
@@ -180,8 +180,10 @@ private:
 
     void planner_get_plan(const std::shared_ptr<my_robot_interfaces::srv::GetPlan::Request> request,
         std::shared_ptr<my_robot_interfaces::srv::GetPlan::Response> response) {
-
+        
+        
         RCLCPP_INFO(node_->get_logger(), "Plan Request Received");
+        std::string logging_message = "Plan Request Received";
 
         if (agent_poses_hmap.find(request->serial_id) == agent_poses_hmap.end()){ 
             RCLCPP_INFO(node_->get_logger(),"%s Does not Exist", request->serial_id.c_str());
@@ -208,6 +210,7 @@ private:
                 auto new_global_map = this->generate_new_map(archived_paths[i].point_list , false);
                 this->global_map = new_global_map;
                 RCLCPP_INFO(node_->get_logger(), "Unassigning Old Path");
+                logging_message += "\n Unassigning Old Path";
 
                 this->publish_new_map(pre_process_map());
                 archived_paths.erase(archived_paths.begin() + i);
@@ -215,6 +218,7 @@ private:
             else{
                 if(archived_paths[i].point_list.back() == goal_point){
                     RCLCPP_INFO(node_->get_logger(), "Goal Point is already occupied by another agent");
+                    logging_message += "\n Goal Point is already occupied by another agent";
                     response->path = {start_point, start_point};
                     return;
                 }
@@ -231,15 +235,25 @@ private:
         // check for collision
         do{
             tries--;
-            current_path.point_list = astar.get_plan(new_tempo_map,start_point,goal_point);
+            // calculate the time taken to plan the path 
+            double time_start = node_->now().seconds();
+
+            current_path.point_list = bid_astar.get_plan(new_tempo_map,start_point,goal_point);
+
+            double time_end = node_->now().seconds();
+            logging_message += "\n Time taken to plan the path: " + std::to_string(time_end - time_start);
+
             current_path.time_of_plan = node_->now().seconds();
             collision_location = planner_check_collision(current_path);
+
             if(collision_location.x != -1)
             {
                 new_tempo_map[collision_location.z][collision_location.y][collision_location.x] = 0;
             }
+
             if(collision_location == goal_point || current_path.point_list.size() == 0){
                 RCLCPP_INFO(node_->get_logger(), "Goal unreachable as there is an object at the destination");
+                logging_message += "\n Goal unreachable as there is an object at the destination";
                 response->path = {start_point, start_point};
                 return;
             }
@@ -249,6 +263,7 @@ private:
         // if collision is not found even after 10 tries
         if(collision_location.x != -1){
             RCLCPP_INFO(node_->get_logger(), "Collision Detected at %f %f %f and it cannot be resolved !", collision_location.x, collision_location.y, collision_location.z);
+            logging_message += "\n Collision Detected at " + std::to_string(collision_location.x) + " " + std::to_string(collision_location.y) + " " + std::to_string(collision_location.z) + " and it cannot be resolved !";
             return;
         }
 
@@ -256,8 +271,11 @@ private:
 
         archived_paths.push_back(current_path);
 
+        logging_message += "\n Path Lengths: " + std::to_string(current_path.point_list.size());
+
         for(auto point : current_path.point_list){
             RCLCPP_INFO(node_->get_logger(), "Path Point: %f %f %f", point.x, point.y, point.z);
+            logging_message += "\n Path Point: " + std::to_string(point.x) + " " + std::to_string(point.y) + " " + std::to_string(point.z);
         }
 
         // old planner v1
@@ -283,11 +301,19 @@ private:
 
 
         // we finally update the map with the new map 
+        this->write_to_log(logging_message);
         global_map = this->generate_new_map(current_path.point_list , true);
         this->publish_new_map(pre_process_map());
     }
 
-
+    void write_to_log(const std::string &msg) {
+        // open a file in append mode and write the message
+        std::ofstream log_file;
+        log_file.open("/home/neo/Robotics/ros2_ws/Logs/log.txt", std::ios_base::app);
+        log_file << msg << std::endl;
+        log_file.close();
+    }
+        
     // callback for updating the map
 
     void publish_new_map(std::vector<int> new_map) {
