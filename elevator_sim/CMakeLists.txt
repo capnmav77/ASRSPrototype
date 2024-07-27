@@ -6,21 +6,16 @@ find_package(rclcpp REQUIRED)
 find_package(gazebo_ros REQUIRED)
 find_package(std_msgs REQUIRED)
 
-include_directories(include)
-
 # Add the plugin library
-add_library(elevator_plugin SHARED src/elevator_plugin.cpp)
-target_link_libraries(elevator_plugin
-  ${GAZEBO_LIBRARIES}
-)
-ament_target_dependencies(elevator_plugin
+add_library(elevator_control_plugin SHARED src/elevator_control_plugin.cpp)
+
+ament_target_dependencies(elevator_control_plugin
   "gazebo_ros"
   "rclcpp"
   "std_msgs"
 )
 
-install(TARGETS
-  elevator_plugin
+install(TARGETS elevator_control_plugin
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin

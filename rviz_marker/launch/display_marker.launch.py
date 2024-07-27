@@ -15,7 +15,7 @@ class StreamlitAction(ExecuteProcess):
 class GazeboAction(ExecuteProcess):
     def __init__(self):
         super().__init__(
-            cmd=['ros2','launch','my_robot_bringup','my_robot_gazebo.launch.xml'],
+            cmd=['ros2','launch','elevator_sim','elevator_sim.launch.py'],
             name='Gazebo_Action',
             output='screen'
         )
@@ -63,6 +63,11 @@ def generate_launch_description():
         executable="service_test",
         arguments=["agent_3","4", "0", "0"],
     )
+    agent_node_4 = Node(
+        package="agent",
+        executable="service_test",
+        arguments=["agent_4","6", "0", "0"],
+    )
 
     # Add the Streamlit GUI action
     streamlit_gui = StreamlitAction()
@@ -77,6 +82,7 @@ def generate_launch_description():
         agent_node_1,
         agent_node_2,
         agent_node_3,
+        agent_node_4,
         streamlit_gui,
         #gazebo_init,
     ])

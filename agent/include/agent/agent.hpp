@@ -23,9 +23,9 @@ public:
     explicit Agent_Robot(std::shared_ptr<rclcpp::Node> node, std::string serial_id, geometry_msgs::msg::Pose start_pose, const double period = 10.0, const double timer_hz = 30.0)
         : node_(node), serial_id(serial_id), pose(start_pose), period(period), timer_hz(timer_hz)
     {
-        agent_color[0] = 188;
-        agent_color[1] = 215;
-        agent_color[2] = 224;
+        agent_color[0] = 247;
+        agent_color[1] = 255;
+        agent_color[2] = 0;
         dt_position = 0;
         done = true;
         teleport=false;
@@ -48,6 +48,7 @@ private:
     geometry_msgs::msg::Pose pose; 
 
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_agent_marker_;
+    // rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_obstacle_marker_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_path_marker_;  
     rclcpp::Publisher<my_robot_interfaces::msg::AgentInfo>::SharedPtr pub_agent_info_;
     rclcpp::Client<my_robot_interfaces::srv::GetPlan>::SharedPtr get_plan_service_client_;                    
@@ -61,7 +62,7 @@ private:
     double agent_color[3];                                 
     double dt_position;                                    
     bool done;   
-    bool teleport;                                           
+    bool teleport;                                       
     geometry_msgs::msg::Pose goal_pose;                    
     vector<geometry_msgs::msg::Point> point_list;          
 
@@ -102,6 +103,7 @@ private:
         pub_agent_info_->publish(msg);
         agent_update_transform(pose);
         agent_build_agent_marker();
+        // obstacle_build_marker();
 
         if (teleport)
         {
@@ -176,7 +178,7 @@ private:
         marker.pose.position.z = 0.25;
         marker.scale.x = 1.0;
         marker.scale.y = 1.0;
-        marker.scale.z = 1.0;
+        marker.scale.z = 0.25;
         marker.color.a = 1.0;
         marker.color.r = agent_color[0];
         marker.color.g = agent_color[1];
@@ -195,9 +197,9 @@ private:
         marker.action = visualization_msgs::msg::Marker::ADD;
         marker.pose.orientation.w = 1.0;
         marker.scale.x = 0.5;
-        marker.color.r = agent_color[0];
-        marker.color.g = agent_color[1];
-        marker.color.b = agent_color[2];
+        marker.color.r = 230;
+        marker.color.g = 195;
+        marker.color.b = 20;
         marker.color.a = 1.0;
         marker.points = vect;
         pub_path_marker_->publish(marker);

@@ -28,9 +28,12 @@ public:
     Path_Planner(std::shared_ptr<rclcpp::Node> node, const int period = 10) : node_(node), period_(period) {
         path_planning_service_ = node_->create_service<my_robot_interfaces::srv::GetPlan>(
             "/get_plan", std::bind(&Path_Planner::planner_get_plan, this, std::placeholders::_1, std::placeholders::_2));
+        test_service_ = node_->create_service<my_robot_interfaces::srv::GetPlan>(
+            "/test_service", std::bind(&Path_Planner::tester_service, this, std::placeholders::_1, std::placeholders::_2));
         sub_agent_info_ = node_->create_subscription<my_robot_interfaces::msg::AgentInfo>("/agent_info", 100, std::bind(&Path_Planner::planner_agent_pose_callback, this, std::placeholders::_1));
         update_map_client_ = node_->create_client<my_robot_interfaces::srv::UpdateMap>("/update_map");
         get_map_client_ = node_->create_client<my_robot_interfaces::srv::GetMap>("/get_map");
+
         
 
         RCLCPP_INFO(node_->get_logger(), "Motion Planner Service Ready");
@@ -40,6 +43,7 @@ public:
 private:
     std::shared_ptr<rclcpp::Node> node_;
     rclcpp::Service<my_robot_interfaces::srv::GetPlan>::SharedPtr path_planning_service_;
+    rclcpp::Service<my_robot_interfaces::srv::GetPlan>::SharedPtr test_service_; // takes a single integer and returns the same integer rclcpp::Client<int>::SharedPtr test_client_;
     rclcpp::Client<my_robot_interfaces::srv::GetMap>::SharedPtr get_map_client_;
     rclcpp::Client<my_robot_interfaces::srv::UpdateMap>::SharedPtr update_map_client_;
     rclcpp::Subscription<my_robot_interfaces::msg::AgentInfo>::SharedPtr sub_agent_info_;   
@@ -177,6 +181,40 @@ private:
         return collision_point;
     }
 
+    void tester_service(const std::shared_ptr<my_robot_interfaces::srv::GetPlan::Request> request, std::shared_ptr<my_robot_interfaces::srv::GetPlan::Response> response) {
+        RCLCPP_INFO(node_->get_logger(), "Test Service Request Received");
+        string logging_info = "Test Service Request Received";
+        vector<vector<int>> points1 = {{9,9,0},{9,9,1},{9,9,2}};
+        vector<vector<int>> points2 = {{1,9,1},{9,1,1},{1,1,1}};   
+        vector<vector<int>> points3 = {{0,0,2},{2,0,2},{4,0,2}}; 
+        vector<vector<int>> points4 = {{0,0,0},{2,0,0},{4,0,0}};
+
+        vector<vector<vector<int>>> points = {points4,points1,points2,points3,points1,points2,points4};
+        geometry_msgs::msg::Point start_point,goal_point;
+        for(int k=0; k<100 ; k++){
+            for(int i=0;i<6;++i){
+                for(int j=0 ; j<3 ; j++){
+
+                    start_point.x = points[i][j][0];
+                    start_point.y = points[i][j][1];
+                    start_point.z = points[i][j][2];
+                    goal_point.x = points[i+1][j][0];
+                    goal_point.y = points[i+1][j][1];
+                    goal_point.z = points[i+1][j][2];
+
+                    // starting timer 
+                    double time_start = node_->now().seconds();
+                    vector<geometry_msgs::msg::Point> path = bid_astar.get_plan(global_map,start_point,goal_point);
+                    double time_end = node_->now().seconds();
+                    logging_info += "\n Time taken to plan the path: " + std::to_string(time_end - time_start);
+                    logging_info += "\n Path Length: " + std::to_string(path.size());
+                }
+            }
+        }
+        this->write_to_log(logging_info);
+        response->path = {start_point, start_point};
+    }
+
 
     // callback for getting plan 
 
@@ -240,7 +278,7 @@ private:
             // calculate the time taken to plan the path 
             double time_start = node_->now().seconds();
 
-            current_path.point_list = jps.get_plan(new_tempo_map,start_point,goal_point);
+            current_path.point_list = astar.get_plan(new_tempo_map,start_point,goal_point);
 
             double time_end = node_->now().seconds();
             logging_message += "\n Time taken to plan the path: " + std::to_string(time_end - time_start);
@@ -311,7 +349,7 @@ private:
     void write_to_log(const std::string &msg) {
         // open a file in append mode and write the message
         std::ofstream log_file;
-        log_file.open("/home/neo/Robotics/ros2_ws/Logs/log5.txt", std::ios_base::app);
+        log_file.open("/home/neo/Robotics/ros2_ws/Logs/logbidias.txt", std::ios_base::app);
         log_file << msg << std::endl;
         log_file.close();
     }
