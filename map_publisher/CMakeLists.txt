@@ -30,7 +30,7 @@ ament_target_dependencies(map_publisher_node
 
 # Install headers
 install(
-  DIRECTORY include/
+  DIRECTORY include
   DESTINATION include
 )
 

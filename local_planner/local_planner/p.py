@@ -49,7 +49,7 @@ class DirectionSubscriber(Node):
         self.rot_complete = False
         self.prev_direction = "north"
         self.prev_nsew = "n/s"
-        self.nsew = None
+        self.nsew = None # don't worry , you are not the only one who mistook it as nsfw
         self.orientation = "front"
 
 

@@ -19,7 +19,8 @@ using std::vector;
 
 class Agent_Robot 
 {
-public:
+public: 
+    // calling it only once and to pass in the correct parameters
     explicit Agent_Robot(std::shared_ptr<rclcpp::Node> node, std::string serial_id, geometry_msgs::msg::Pose start_pose, const double period = 10.0, const double timer_hz = 30.0)
         : node_(node), serial_id(serial_id), pose(start_pose), period(period), timer_hz(timer_hz)
     {
@@ -29,26 +30,35 @@ public:
         dt_position = 0;
         done = true;
         teleport=false;
-
+        // pub for the agent's position
         pub_agent_marker_ = node_->create_publisher<visualization_msgs::msg::Marker>("/Rviz_marker_topic/base_link", 10);
+        // pub for the path that the agent recieves
         pub_path_marker_  = node_->create_publisher<visualization_msgs::msg::Marker>("/Rviz_marker_topic/path", 10);
+        // pub for the agent's information to the global planner 
         pub_agent_info_   = node_->create_publisher<my_robot_interfaces::msg::AgentInfo>("/agent_info", 10);
+
+        // service that makes the agent go to a certain destination.
         service_ = node_->create_service<my_robot_interfaces::srv::UpdateGoal>(serial_id+"/update_goal", std::bind(&Agent_Robot::agent_update_goal,this,_1));
+
+        // a client request to call the Path planner for the path .
         get_plan_service_client_ = node_->create_client<my_robot_interfaces::srv::GetPlan>("/get_plan");
         br_ = std::make_unique<tf2_ros::TransformBroadcaster>(node_);
-
+        
+        // timer to run the publisher calls .
         timer_ = node_->create_wall_timer(std::chrono::duration<double>(1.0/timer_hz), std::bind(&Agent_Robot::agent_update_pose, this));
+
         RCLCPP_INFO(node_->get_logger(), "Ready to update goal pose for %s", serial_id.c_str());
     }
 
 private:
-
+    // rosnode
     std::shared_ptr<rclcpp::Node> node_;
-    std::string serial_id;                                 
+    // agent's id
+    std::string serial_id;              
+    // agent's pose                   
     geometry_msgs::msg::Pose pose; 
 
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_agent_marker_;
-    // rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_obstacle_marker_;
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_path_marker_;  
     rclcpp::Publisher<my_robot_interfaces::msg::AgentInfo>::SharedPtr pub_agent_info_;
     rclcpp::Client<my_robot_interfaces::srv::GetPlan>::SharedPtr get_plan_service_client_;                    
@@ -62,10 +72,10 @@ private:
     double agent_color[3];                                 
     double dt_position;                                    
     bool done;   
-    bool teleport;                                       
     geometry_msgs::msg::Pose goal_pose;                    
     vector<geometry_msgs::msg::Point> point_list;          
 
+    // updating the agent's overall pose
     void agent_update_pose()
     {   
         static int cntr=0, index =0;
@@ -97,22 +107,17 @@ private:
 
         }
 
+        // publishing the agent's information everytime something updates.
         my_robot_interfaces::msg::AgentInfo msg;
         msg.serial_id = serial_id;
         msg.pose = pose;
         pub_agent_info_->publish(msg);
         agent_update_transform(pose);
         agent_build_agent_marker();
-        // obstacle_build_marker();
 
-        if (teleport)
-        {
-            pose.position.x = 5;
-            pose.position.y = 5;
-            pose.position.z = 2;
-        }
     }
  
+    // updating the goal by requesting a path and moving to it
     void agent_update_goal(std::shared_ptr<my_robot_interfaces::srv::UpdateGoal::Request> req)
     {
         goal_pose = req->goal_pose;
@@ -126,6 +131,7 @@ private:
 
     }
 
+    // response message handler for the Path planner  
     void responesCallback(rclcpp::Client<my_robot_interfaces::srv::GetPlan>::SharedFuture future)
     {
         if(future.valid())
@@ -142,6 +148,7 @@ private:
         
     }
 
+    // agent's pose for transform broadcaster gazebo.
     void agent_update_transform(geometry_msgs::msg::Pose pose)
     {   
         geometry_msgs::msg::TransformStamped transform;
@@ -165,7 +172,7 @@ private:
         transform.transform.rotation.w = q.w();
         br_->sendTransform(transform);
     }
-
+    // rviz agent marker
     void agent_build_agent_marker()
     {
         visualization_msgs::msg::Marker marker;
@@ -185,7 +192,7 @@ private:
         marker.color.b = agent_color[2];
         pub_agent_marker_->publish(marker);
     }
-
+    // rviz agent path marker
     void agent_build_path_marker(vector<geometry_msgs::msg::Point> vect)
     {
         visualization_msgs::msg::Marker marker;

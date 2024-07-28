@@ -4,7 +4,6 @@
 #include <my_robot_interfaces/msg/agent_info.hpp>
 #include <my_robot_interfaces/srv/get_map.hpp>
 #include <my_robot_interfaces/srv/get_plan.hpp>
-//#include <PathPlanners/CoreComponents.hpp>
 #include <PathPlanners/A_star.hpp>
 #include <PathPlanners/JPS.hpp>
 #include <PathPlanners/Bidirectional_A_Star.hpp>
